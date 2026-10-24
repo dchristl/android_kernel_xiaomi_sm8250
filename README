@@ -1,19 +1,32 @@
-Linux kernel
-============
+# Xiaomi alioth Kernel for LineageOS 24
 
-There are several guides for kernel developers and users. These guides can
-be rendered in a number of formats, like HTML and PDF. Please read
-Documentation/admin-guide/README.rst first.
+This project builds the Linux kernel for the Xiaomi alioth (SM8250) for use
+with LineageOS 24 (`lineage-24.0`). The kernel is based on Linux 4.19.325.
 
-In order to build the documentation, use ``make htmldocs`` or
-``make pdfdocs``.  The formatted documentation can also be read online at:
+## KernelSU Next
 
-    https://www.kernel.org/doc/html/latest/
+The project evaluates two KernelSU Next integration methods as separate
+kernel builds:
 
-There are various text files in the Documentation/ subdirectory,
-several of them using the Restructured Text markup notation.
-See Documentation/00-INDEX for a list of what is contained in each file.
+- **Kprobes:** an experimental variant using KernelSU Next's
+  tracepoint/kretprobe hooks.
+- **Manual hooks:** the current integration, with hooks added directly to
+  the kernel at the required syscall paths.
 
-Please read the Documentation/process/changes.rst file, as it contains the
-requirements for building and running the kernel, and information about
-the problems which may result by upgrading your kernel.
+The current source is pinned to KernelSU Next
+`v3.4.0-legacy-21-g0b17f242` (`0b17f242`). Its manual-hook integration has
+been build-verified in the alioth `boot.img`.
+
+The KernelSU Next non-GKI integration guide presents kprobe and manual
+integration as options, and suggests manual integration if kprobe does not
+work or the kernel is older than 4.14. Separately, this pinned source's
+`kernel/Kconfig`, under `KSU_KPROBES_HOOK`, warns: "This should not be used
+on kernel below 5.10." This warning is specific to KernelSU Next's
+tracepoint/kretprobe hook mode; it is not a statement that Linux kprobes
+themselves are unavailable on 4.19. Because the guide and this Kconfig
+warning differ in scope, the kprobe build should be treated as experimental
+on this 4.19 kernel until verified on-device.
+
+The two hook methods are alternatives and should not be enabled together.
+Successful image creation verifies build integration only; runtime behavior
+must still be tested on the device.
