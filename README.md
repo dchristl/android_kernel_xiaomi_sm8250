@@ -1,0 +1,34 @@
+# Xiaomi alioth Kernel for LineageOS 24
+
+This project builds the Linux kernel for the Xiaomi alioth (SM8250) for use
+with LineageOS 24 ([`lineage-24.0`](https://github.com/dchristl/android_kernel_xiaomi_sm8250/tree/lineage-24.0)).
+The kernel is based on Linux 4.19.325.
+
+## KernelSU Next
+
+The project evaluates two KernelSU Next integration methods as separate
+kernel builds:
+
+- **[Kprobes branch](https://github.com/dchristl/android_kernel_xiaomi_sm8250/tree/kprobe_kernelsu):**
+  an experimental variant using KernelSU Next's tracepoint/kretprobe hooks.
+- **[Manual hooks branch](https://github.com/dchristl/android_kernel_xiaomi_sm8250/tree/manually_kernelsu):**
+  the current integration, with hooks added directly to the kernel at the
+  required syscall paths.
+
+The current source is pinned to KernelSU Next
+`v3.4.0-legacy-21-g0b17f242` (`0b17f242`). Its manual-hook integration has
+been build-verified in the alioth `boot.img`.
+
+The KernelSU Next non-GKI integration guide presents kprobe and manual
+integration as options, and suggests manual integration if kprobe does not
+work or the kernel is older than 4.14. Separately, this pinned source's
+`kernel/Kconfig`, under `KSU_KPROBES_HOOK`, warns: "This should not be used
+on kernel below 5.10." This warning is specific to KernelSU Next's
+tracepoint/kretprobe hook mode; it is not a statement that Linux kprobes
+themselves are unavailable on 4.19. Because the guide and this Kconfig
+warning differ in scope, the kprobe build should be treated as experimental
+on this 4.19 kernel until verified on-device.
+
+The two hook methods are alternatives and should not be enabled together.
+Successful image creation verifies build integration only; runtime behavior
+must still be tested on the device.
