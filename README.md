@@ -11,7 +11,7 @@ configuration enables `CONFIG_KSU`, `CONFIG_KPROBES`, `CONFIG_KPROBE_EVENTS`,
 and `CONFIG_KSU_KPROBES_HOOK`; manual hook mode is disabled.
 
 The KernelSU Next source is pinned to
-[`v3.4.0-legacy-21-g0b17f242`](https://github.com/KernelSU-Next/KernelSU-Next/tree/0b17f242).
+[`v3.4.0-legacy-22-g165b87fa`](https://github.com/KernelSU-Next/KernelSU-Next/tree/165b87fa99abfe78058c4dc9df43c432e86b8011).
 For the alternative manual-hook integration, see the
 [`manually_kernelsu` branch](https://github.com/dchristl/android_kernel_xiaomi_sm8250/tree/manually_kernelsu).
 
