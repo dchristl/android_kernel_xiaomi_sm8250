@@ -6,29 +6,30 @@ The kernel is based on Linux 4.19.325.
 
 ## KernelSU Next
 
-The project evaluates two KernelSU Next integration methods as separate
-kernel builds:
+KernelSU Next experiments are maintained on separate branches:
 
 - **[Kprobes branch](https://github.com/dchristl/android_kernel_xiaomi_sm8250/tree/kprobe_kernelsu):**
-  an experimental variant using KernelSU Next's tracepoint/kretprobe hooks.
+  experimental tracepoint/kretprobe hooks.
 - **[Manual hooks branch](https://github.com/dchristl/android_kernel_xiaomi_sm8250/tree/manually_kernelsu):**
-  the current integration, with hooks added directly to the kernel at the
-  required syscall paths.
+  hooks added directly at the required syscall paths.
 
-The current source is pinned to KernelSU Next
-`v3.4.0-legacy-21-g0b17f242` (`0b17f242`). Its manual-hook integration has
-been build-verified in the alioth `boot.img`.
+This `lineage-24.0` branch does not include KernelSU Next. The two integration
+methods are alternatives and should not be enabled together. KernelSU and
+Magisk are separate from the audio workaround described below.
 
-The KernelSU Next non-GKI integration guide presents kprobe and manual
-integration as options, and suggests manual integration if kprobe does not
-work or the kernel is older than 4.14. Separately, this pinned source's
-`kernel/Kconfig`, under `KSU_KPROBES_HOOK`, warns: "This should not be used
-on kernel below 5.10." This warning is specific to KernelSU Next's
-tracepoint/kretprobe hook mode; it is not a statement that Linux kprobes
-themselves are unavailable on 4.19. Because the guide and this Kconfig
-warning differ in scope, the kprobe build should be treated as experimental
-on this 4.19 kernel until verified on-device.
+## Analog USB-C headset workaround
 
-The two hook methods are alternatives and should not be enabled together.
-Successful image creation verifies build integration only; runtime behavior
-must still be tested on the device.
+For the alioth analog headset path, ADM Audproc calibration records belonging
+to module `0x1000a101` are excluded only when the calibration matches the
+known block exactly: port `0xb030`, path 0, app type 69940, ACDB ID 10,
+48 kHz, and 4780 bytes. The remaining 4292-byte calibration payload is sent.
+The original calibration buffer is restored after the send.
+
+This workaround was confirmed to make the headset path usable in device
+testing. It is not a confirmed root-cause fix; the cause of the ADSP failure
+remains unknown. Other calibration blocks and Bluetooth audio do not match
+the filter conditions, so they are not intentionally changed.
+
+No long-term regression testing or kernel build is implied by this
+documentation. Rebuild and test the kernel against the matching LineageOS
+build. After an OTA, use a kernel image built for that new OS build.
