@@ -28,6 +28,21 @@ output and embedded the corresponding configuration. KernelSU hook symbols
 were also present in the linked `vmlinux`. These checks confirm build
 integration only, not runtime behavior on a device.
 
+## SUSFS v2.3.0
+
+SUSFS v2.3.0 is ported to this Linux 4.19.325 kernel using the
+[4.19 patch](https://github.com/JackA1ltman/NonGKI_Kernel_Build_2nd/blob/b5d7e5be60398f040b9e9919186c410c01a228da/Patches/Patch/susfs_patch_to_4.19.patch)
+as a reference. The port keeps the existing KernelSU-Next pin and manual
+hooks; it does not replace KernelSU with a SUSFS-specific fork.
+
+The alioth configuration enables SUSFS path and mount hiding, kstat and uname
+spoofing, logging, symbol hiding, cmdline/bootconfig spoofing, open redirect,
+and mapped-file hiding. KernelSU's SUSFS supercalls and SELinux integration
+are wired into the existing KernelSU-Next source.
+
+This is a source port and has not been built or runtime-tested. Treat it as
+experimental until it compiles and is tested on the device.
+
 ## Analog USB-C headset workaround
 
 For the alioth analog headset path, ADM Audproc calibration records belonging
