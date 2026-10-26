@@ -1,47 +1,45 @@
-Linux kernel
-============
+# Xiaomi alioth Kernel for LineageOS 24
 
-There are several guides for kernel developers and users. These guides can
-be rendered in a number of formats, like HTML and PDF. Please read
-Documentation/admin-guide/README.rst first.
+This project builds the Linux 4.19.325 kernel for Xiaomi alioth (SM8250),
+for use with LineageOS 24 ([`lineage-24.0`](https://github.com/dchristl/android_kernel_xiaomi_sm8250/tree/lineage-24.0)).
 
-In order to build the documentation, use ``make htmldocs`` or
-``make pdfdocs``.  The formatted documentation can also be read online at:
+## KernelSU Next: Manual hooks
 
-    https://www.kernel.org/doc/html/latest/
+KernelSU Next is integrated on this branch using the manual-hook method
+described in the [non-GKI integration guide](https://kernelsu-next.github.io/webpage/pages/how-to-integrate-for-non-gki.html).
+The source is pinned to commit
+[`0b17f242`](https://github.com/KernelSU-Next/KernelSU-Next/tree/0b17f242)
+on the `legacy` branch (`v3.4.0-legacy-21-g0b17f242`).
 
-There are various text files in the Documentation/ subdirectory,
-several of them using the Restructured Text markup notation.
-See Documentation/00-INDEX for a list of what is contained in each file.
+The alioth configuration enables:
 
-Please read the Documentation/process/changes.rst file, as it contains the
-requirements for building and running the kernel, and information about
-the problems which may result by upgrading your kernel.
+```text
+CONFIG_KSU=y
+CONFIG_KSU_MANUAL_HOOK=y
+```
 
-Alioth: KernelSU Next
-=====================
+Manual hooks cover exec/execveat (including compat calls), faccessat, read,
+newfstatat/fstatat64, and reboot. Compatibility changes also backport
+`path_umount()` and the seccomp `filter_count` field required by this
+KernelSU version. KernelSU's kprobe hook mode is not used.
 
-KernelSU Next is integrated into this kernel for the Xiaomi alioth (SM8250)
-using the manual-hook method described in the KernelSU Next non-GKI guide.
-The integrated source is pinned at commit ``0b17f242`` on the ``legacy``
-branch (``v3.4.0-legacy-21-g0b17f242``).
+The verified alioth `boot.img` contained the same kernel image as the build
+output and embedded the corresponding configuration. KernelSU hook symbols
+were also present in the linked `vmlinux`. These checks confirm build
+integration only, not runtime behavior on a device.
 
-The KernelSU source is linked from ``KernelSU-Next/kernel`` into
-``drivers/kernelsu``. ``drivers/Kconfig`` and ``drivers/Makefile`` include
-the KernelSU Kconfig and build rules. The alioth config fragment enables:
+## Analog USB-C headset workaround
 
-.. code-block:: text
+For the alioth analog headset path, ADM Audproc calibration records belonging
+to module `0x1000a101` are excluded only when the calibration matches the
+known block exactly: port `0xb030`, path 0, app type 69940, ACDB ID 10,
+48 kHz, and 4780 bytes. The remaining 4292-byte calibration payload is sent.
+The original calibration buffer is restored after the send.
 
-   CONFIG_KSU=y
-   CONFIG_KSU_MANUAL_HOOK=y
+This workaround was confirmed to make the headset path usable in device
+testing. It is not a confirmed root-cause fix; the cause of the ADSP failure
+remains unknown. Other calibration blocks, including Bluetooth audio, do not
+match the filter conditions and are not intentionally changed.
 
-Manual hooks are added for exec/execveat (including compat calls), faccessat,
-read, newfstatat/fstatat64, and reboot. The KernelSU build also backports
-``path_umount()`` and the seccomp ``filter_count`` field required by this
-KernelSU version.
-
-The verified alioth ``boot.img`` contains the same kernel image as the build
-output and embeds the configuration above. KernelSU hook symbols were also
-present in the linked ``vmlinux``. The final manual-hook configuration has
-``CONFIG_KPROBES`` disabled; it does not use KernelSU's kprobe hook. These
-checks confirm build integration only, not runtime behavior on a device.
+Rebuild and test the kernel against the matching LineageOS build. After an
+OTA, use a kernel image built for that exact OS build.

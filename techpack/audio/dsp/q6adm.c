@@ -2214,7 +2214,8 @@ static int send_adm_cal_block(int port_id, int copp_idx,
 	mem_hdr.mem_map_handle = cal_block->map_data.q6map_handle;
 	payload_size = cal_block->cal_data.size;
 
-	adm_set_pp_params(port_id, copp_idx, &mem_hdr, NULL, payload_size);
+	result = adm_set_pp_params(port_id, copp_idx, &mem_hdr, NULL,
+				   payload_size);
 
 done:
 	return result;
@@ -2365,11 +2366,79 @@ done:
 	return ret;
 }
 
+#define ADM_HEADSET_CAL_MODULE_ID 0x1000a101
+
+static int adm_remove_cal_module(struct cal_block_data *cal_block,
+				 u32 module_id, size_t *filtered_size)
+{
+	u8 *data;
+	size_t offset = 0;
+	size_t kept_size = 0;
+	size_t output_offset = 0;
+	size_t removed_size_local = 0;
+
+	if (!cal_block || !cal_block->cal_data.kvaddr ||
+	    !filtered_size)
+		return -EINVAL;
+
+	*filtered_size = 0;
+	data = cal_block->cal_data.kvaddr;
+	while (offset < cal_block->cal_data.size) {
+		struct param_hdr_v3 *hdr;
+		size_t record_size;
+
+		if (cal_block->cal_data.size - offset < sizeof(*hdr))
+			return -EINVAL;
+
+		hdr = (struct param_hdr_v3 *)(data + offset);
+		if (hdr->param_size >
+		    cal_block->cal_data.size - offset - sizeof(*hdr))
+			return -EINVAL;
+
+		record_size = sizeof(*hdr) + hdr->param_size;
+		if (hdr->module_id == module_id)
+			removed_size_local += record_size;
+		else
+			kept_size += record_size;
+		offset += record_size;
+	}
+
+	if (!removed_size_local)
+		return -ENOENT;
+
+	if (!kept_size)
+		return -EINVAL;
+
+	offset = 0;
+	while (offset < cal_block->cal_data.size) {
+		struct param_hdr_v3 *hdr =
+			(struct param_hdr_v3 *)(data + offset);
+		size_t record_size = sizeof(*hdr) + hdr->param_size;
+
+		if (hdr->module_id != module_id) {
+			memmove(data + output_offset, data + offset,
+				record_size);
+			output_offset += record_size;
+		}
+		offset += record_size;
+	}
+
+	if (output_offset != kept_size)
+		return -EINVAL;
+
+	*filtered_size = output_offset;
+	return 0;
+}
+
 static void send_adm_cal_type(int cal_index, int path, int port_id,
 			      int copp_idx, int perf_mode, int app_type,
 			      int acdb_id, int sample_rate)
 {
 	struct cal_block_data		*cal_block = NULL;
+	struct audio_cal_info_audproc *info;
+	u8 *cal_backup;
+	size_t original_size;
+	size_t filtered_size;
 	int ret;
 
 	pr_debug("%s: cal index %d\n", __func__, cal_index);
@@ -2386,6 +2455,53 @@ static void send_adm_cal_type(int cal_index, int path, int port_id,
 	if (cal_block == NULL)
 		goto unlock;
 
+	info = cal_block->cal_info;
+	if (cal_index == ADM_AUDPROC_CAL &&
+	    port_id == AFE_PORT_ID_RX_CODEC_DMA_RX_0 &&
+	    path == 0 && info->app_type == 69940 &&
+	    info->acdb_id == 10 && info->sample_rate == 48000 &&
+	    cal_block->cal_data.size == 4780) {
+		original_size = cal_block->cal_data.size;
+		if (!cal_block->cal_data.kvaddr) {
+			pr_err("%s: headset calibration buffer is unavailable\n",
+			       __func__);
+			cal_utils_mark_cal_used(cal_block);
+			goto unlock;
+		}
+
+		cal_backup = kmemdup(cal_block->cal_data.kvaddr, original_size,
+				     GFP_KERNEL);
+		if (!cal_backup) {
+			pr_err("%s: failed to back up headset calibration\n",
+			       __func__);
+			cal_utils_mark_cal_used(cal_block);
+			goto unlock;
+		}
+
+		ret = adm_remove_cal_module(cal_block,
+					    ADM_HEADSET_CAL_MODULE_ID,
+					    &filtered_size);
+		if (ret) {
+			memcpy(cal_block->cal_data.kvaddr, cal_backup,
+			       original_size);
+			cal_block->cal_data.size = original_size;
+			kfree(cal_backup);
+			pr_err("%s: failed to filter headset calibration: %d\n",
+			       __func__, ret);
+			cal_utils_mark_cal_used(cal_block);
+			goto unlock;
+		}
+
+		cal_block->cal_data.size = filtered_size;
+		ret = adm_remap_and_send_cal_block(cal_index, port_id,
+			copp_idx, cal_block, perf_mode, app_type, acdb_id,
+			sample_rate);
+		memcpy(cal_block->cal_data.kvaddr, cal_backup, original_size);
+		cal_block->cal_data.size = original_size;
+		kfree(cal_backup);
+		cal_utils_mark_cal_used(cal_block);
+		goto unlock;
+	}
 	ret = adm_remap_and_send_cal_block(cal_index, port_id, copp_idx,
 		cal_block, perf_mode, app_type, acdb_id, sample_rate);
 
