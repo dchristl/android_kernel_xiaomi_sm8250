@@ -3,17 +3,20 @@
 This project builds the Linux 4.19.325 kernel for Xiaomi alioth (SM8250),
 for use with LineageOS 24 (`lineage-24.0`).
 
-## KernelSU Next: Kprobes
+## KernelSU Next: Kprobes and SUSFS
 
-The [`kprobe_kernelsu` branch](https://github.com/dchristl/android_kernel_xiaomi_sm8250/tree/kprobe_kernelsu)
-integrates KernelSU Next using its tracepoint/kretprobe hook mode. The alioth
-configuration enables `CONFIG_KSU`, `CONFIG_KPROBES`, `CONFIG_KPROBE_EVENTS`,
-and `CONFIG_KSU_KPROBES_HOOK`; manual hook mode is disabled.
+The [`kprobe_kernelsu_susfs` branch](https://github.com/dchristl/android_kernel_xiaomi_sm8250/tree/kprobe_kernelsu_susfs)
+integrates KernelSU Next using its tracepoint/kretprobe hook mode and SUSFS
+v2.3.0. Manual hook mode remains disabled. The alioth configuration enables
+the Kprobe hook and SUSFS path, mount, kstat, uname, logging, symbol hiding,
+cmdline/bootconfig, open redirect, and mapped-file features.
 
 The KernelSU Next source is pinned to
 [`v3.4.0-legacy-22-g165b87fa`](https://github.com/KernelSU-Next/KernelSU-Next/tree/165b87fa99abfe78058c4dc9df43c432e86b8011).
-For the alternative manual-hook integration, see the
-[`manually_kernelsu` branch](https://github.com/dchristl/android_kernel_xiaomi_sm8250/tree/manually_kernelsu).
+It is vendored in this repository, with the SUSFS bridge documented in
+[`KernelSU-Next/README.md`](KernelSU-Next/README.md). The Kprobe setuid callback
+marks eligible Zygote children for SUSFS processing; SUSFS management commands
+are routed through KernelSU's existing reboot Kprobe.
 
 The [non-GKI integration guide](https://kernelsu-next.github.io/webpage/pages/how-to-integrate-for-non-gki.html)
 lists kprobe and manual integration as options and suggests manual hooks if
@@ -22,6 +25,10 @@ kprobes do not work or the kernel is older than 4.14. The pinned source's
 5.10. This is a warning about KernelSU Next's hook mode, not a claim that
 Linux kprobes themselves are unavailable on 4.19. Verify this build on the
 device before relying on it.
+
+SUSFS is integrated at kernel level, but configured paths and mounts are not
+hidden automatically; a compatible userspace client must set the relevant
+rules. This port has not yet been built or runtime-tested on this branch.
 
 KernelSU Next and Magisk are separate components; using Magisk does not
 change the kernel's audio-calibration workaround below.
