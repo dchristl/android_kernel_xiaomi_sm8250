@@ -23,6 +23,10 @@ static u32 cached_zygote_sid __read_mostly = 0;
 static u32 cached_init_sid __read_mostly = 0;
 static u32 cached_adbd_sid __read_mostly = 0;
 u32 ksu_file_sid __read_mostly = 0;
+#ifdef CONFIG_KSU_SUSFS
+u32 susfs_ksu_sid __read_mostly = 0;
+u32 susfs_priv_app_sid __read_mostly = 0;
+#endif
 
 static int transive_to_domain(const char *domain, struct cred *cred, bool clear_exec_sid)
 {
@@ -158,6 +162,21 @@ void cache_sid(void)
     } else {
         pr_info("Cached ksu_file SID: %u\n", ksu_file_sid);
     }
+
+#ifdef CONFIG_KSU_SUSFS
+    err = security_secctx_to_secid(KERNEL_SU_CONTEXT, strlen(KERNEL_SU_CONTEXT), &susfs_ksu_sid);
+    if (err) {
+        pr_warn("Failed to cache SUSFS kernel su domain SID: %d\n", err);
+        susfs_ksu_sid = 0;
+    }
+
+    err = security_secctx_to_secid("u:r:priv_app:s0:c512,c768",
+                                   strlen("u:r:priv_app:s0:c512,c768"), &susfs_priv_app_sid);
+    if (err) {
+        pr_warn("Failed to cache SUSFS priv_app SID: %d\n", err);
+        susfs_priv_app_sid = 0;
+    }
+#endif
 }
 
 /*

@@ -12,6 +12,7 @@
 #include <linux/slab.h>
 #include <linux/syscalls.h>
 #include <linux/task_work.h>
+#include <linux/uaccess.h>
 #include <linux/version.h>
 #include <linux/mount.h>
 
@@ -21,8 +22,10 @@
 #include "infra/su_mount_ns.h"
 #include "util.h"
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 2, 0)
 extern int path_mount(const char *dev_name, struct path *path, const char *type_page, unsigned long flags,
                       void *data_page);
+#endif
 
 // global mode , need CAP_SYS_ADMIN and CAP_SYS_CHROOT to perform setns
 static void ksu_mnt_ns_global(void)
@@ -123,10 +126,17 @@ static void ksu_mnt_ns_individual(void)
     }
 
     // make root mount private
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 2, 0)
     struct path root_path;
     get_fs_root(current->fs, &root_path);
     int pm_ret = path_mount(NULL, &root_path, NULL, MS_PRIVATE | MS_REC, NULL);
     path_put(&root_path);
+#else
+    mm_segment_t old_fs = get_fs();
+    set_fs(KERNEL_DS);
+    int pm_ret = ksys_mount(NULL, (char __user *)"/", NULL, MS_PRIVATE | MS_REC, NULL);
+    set_fs(old_fs);
+#endif
 
     if (pm_ret < 0) {
         pr_err("failed to make root private, err: %d\n", pm_ret);
