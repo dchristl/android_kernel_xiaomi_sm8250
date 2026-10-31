@@ -18,6 +18,19 @@ It is vendored in this repository, with the SUSFS bridge documented in
 marks eligible Zygote children for SUSFS processing; SUSFS management commands
 are routed through KernelSU's existing reboot Kprobe.
 
+The alioth kernel release includes the
+`-perf-kernelsu_next_kprobe_susfs_dsp_patch` local version suffix. Automatic
+Git suffixing is disabled so the release stays within Linux's 64-character
+UTS limit. The compiled-by identity defaults to
+`KernelSU_Next@alioth_kprobe_susfs_dsp_patch` and is configured in
+`scripts/mkcompile_h`, so the values are versioned with this branch. They can
+still be overridden for a local build with `KBUILD_BUILD_USER` and
+`KBUILD_BUILD_HOST`:
+
+```sh
+KBUILD_BUILD_USER=builder KBUILD_BUILD_HOST=buildhost mka bootimage
+```
+
 The [non-GKI integration guide](https://kernelsu-next.github.io/webpage/pages/how-to-integrate-for-non-gki.html)
 lists kprobe and manual integration as options and suggests manual hooks if
 kprobes do not work or the kernel is older than 4.14. The pinned source's
