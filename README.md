@@ -4,18 +4,25 @@ This project builds the Linux kernel for the Xiaomi alioth (SM8250) for use
 with LineageOS 24 ([`lineage-24.0`](https://github.com/dchristl/android_kernel_xiaomi_sm8250/tree/lineage-24.0)).
 The kernel is based on Linux 4.19.325.
 
-## KernelSU Next
+## SukiSU Ultra and SUSFS
 
-KernelSU Next experiments are maintained on separate branches:
+The `sukisu_susfs` branch integrates SukiSU Ultra v4.3.0 with kprobe-based
+syscall hooks and SUSFS v2.3.0. SukiSU's kernel source is vendored under
+[`SukiSU-Ultra/kernel`](SukiSU-Ultra/kernel), with its upstream revision and
+local integration changes documented in
+[`SukiSU-Ultra/UPSTREAM.md`](SukiSU-Ultra/UPSTREAM.md).
 
-- **[Kprobes branch](https://github.com/dchristl/android_kernel_xiaomi_sm8250/tree/kprobe_kernelsu):**
-  experimental tracepoint/kretprobe hooks.
-- **[Manual hooks branch](https://github.com/dchristl/android_kernel_xiaomi_sm8250/tree/manually_kernelsu):**
-  hooks added directly at the required syscall paths.
+SUSFS path, mount, kstat, uname, cmdline, open-redirect, and mapped-file
+features are enabled in the alioth configuration. Kernel support alone does
+not add hide rules; a compatible SukiSU/SUSFS userspace module must configure
+them.
 
-This `lineage-24.0` branch does not include KernelSU Next. The two integration
-methods are alternatives and should not be enabled together. KernelSU and
-Magisk are separate from the audio workaround described below.
+The Linux 4.19 SELinux port applies KernelSU rules to a cloned policy database
+and swaps it under the SELinux policy lock. SukiSU's dynamic SELinux policy
+batch API returns `-EOPNOTSUPP` on this kernel, and the optional `selinux_hide`
+feature is disabled because it depends on newer SELinux policy structures.
+The SukiSU driver and modified kernel objects compile; a full image and device
+runtime have not been tested.
 
 ## Analog USB-C headset workaround
 
