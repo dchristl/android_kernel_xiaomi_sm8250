@@ -29,6 +29,7 @@
 #include "hook/hook_manager.h"
 #include "feature/kernel_umount.h"
 #include "compat/kernel_compat.h"
+#include "selinux/selinux.h"
 
 #ifdef CONFIG_KSU_SUSFS
 extern struct work_struct susfs_extra_works;
