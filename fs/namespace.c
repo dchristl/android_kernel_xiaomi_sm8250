@@ -1745,6 +1745,28 @@ out:
 	return retval;
 }
 
+int path_umount(struct path *path, int flags)
+{
+	struct mount *mnt = real_mount(path->mnt);
+	int ret;
+
+	if (flags & ~(MNT_FORCE | MNT_DETACH | MNT_EXPIRE | UMOUNT_NOFOLLOW))
+		ret = -EINVAL;
+	else if (!may_mount())
+		ret = -EPERM;
+	else if (path->dentry != path->mnt->mnt_root || !check_mnt(mnt) ||
+		 (mnt->mnt.mnt_flags & MNT_LOCKED))
+		ret = -EINVAL;
+	else if ((flags & MNT_FORCE) && !capable(CAP_SYS_ADMIN))
+		ret = -EPERM;
+	else
+		ret = do_umount(mnt, flags);
+
+	dput(path->dentry);
+	mntput_no_expire(mnt);
+	return ret;
+}
+
 SYSCALL_DEFINE2(umount, char __user *, name, int, flags)
 {
 	return ksys_umount(name, flags);

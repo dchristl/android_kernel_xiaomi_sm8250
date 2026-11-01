@@ -1,0 +1,119 @@
+package com.sukisu.ultra.ui.screen.colorpalette
+
+import androidx.activity.compose.LocalActivity
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.dropUnlessResumed
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sukisu.ultra.KernelSUApplication
+import com.sukisu.ultra.ui.LocalUiMode
+import com.sukisu.ultra.ui.UiMode
+import com.sukisu.ultra.ui.navigation3.LocalNavigator
+import com.sukisu.ultra.ui.navigation3.Route
+import com.sukisu.ultra.ui.util.ImageStorage
+import com.sukisu.ultra.ui.viewmodel.SettingsViewModel
+import com.sukisu.ultra.ui.component.themeimport.ThemeImportDialog
+
+@Composable
+fun ColorPaletteScreen(section: String? = null) {
+    val navigator = LocalNavigator.current
+    val context = LocalContext.current
+    val activity = LocalActivity.current
+    val viewModel = viewModel<SettingsViewModel>()
+    // The page state is projected in the view model, so nothing is parsed while composing.
+    val state by viewModel.colorPaletteState.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.refreshBackgroundAppearance()
+    }
+    val actions = ColorPaletteScreenActions(
+        onBack = dropUnlessResumed { navigator.pop() },
+        onSetThemeMode = viewModel::setThemeMode,
+        onSetMiuixMonet = viewModel::setMiuixMonet,
+        onSetKeyColor = viewModel::setKeyColor,
+        onSetColorMode = viewModel::setColorMode,
+        onSetColorStyle = viewModel::setColorStyle,
+        onSetColorSpec = viewModel::setColorSpec,
+        onSetEnableBlur = viewModel::setEnableBlur,
+        onSetEnableFloatingBottomBar = viewModel::setEnableFloatingBottomBar,
+        onSetEnableFloatingBottomBarBlur = viewModel::setEnableFloatingBottomBarBlur,
+        onSetEnableNavigationBadge = viewModel::setEnableNavigationBadge,
+        onSetEnablePredictiveBack = {
+            viewModel.setEnablePredictiveBack(it)
+            KernelSUApplication.setEnableOnBackInvokedCallback(context.applicationInfo, it)
+            activity?.recreate()
+        },
+        onSetEnableSwipeDismiss = viewModel::setEnableSwipeDismiss,
+        onSetPagerInterceptionMode = viewModel::setPagerInterceptionMode,
+        onSetPageScale = viewModel::setPageScale,
+        onSetModuleDescriptionMaxLines = viewModel::setModuleDescriptionMaxLines,
+        onSetShowFullStatus = viewModel::setShowFullStatus,
+        onSetHideHomeWarnings = viewModel::setHideHomeWarnings,
+        onSetShowAiHomeCard = viewModel::setShowAiHomeCard,
+        onOpenAppIcon = { navigator.push(Route.AppIcon) },
+        onSetBackgroundAppearanceExpanded = viewModel::setBackgroundAppearanceExpanded,
+        onSetCustomHomeTitle = viewModel::setCustomHomeTitle,
+        onPickCustomBackground = { ctx, uri ->
+            viewModel.stagePickedBackground(ctx, uri) { path ->
+                if (path != null) {
+                    if (navigator.current() is Route.ColorPalette) {
+                        navigator.push(Route.BackgroundCrop(path))
+                    } else {
+                        ImageStorage.discardStaged(path)
+                    }
+                }
+            }
+        },
+        onCropCurrentBackground = { ctx ->
+            viewModel.stageCurrentBackground(ctx) { path ->
+                if (path != null) {
+                    if (navigator.current() is Route.ColorPalette) {
+                        navigator.push(Route.BackgroundCrop(path))
+                    } else {
+                        ImageStorage.discardStaged(path)
+                    }
+                }
+            }
+        },
+        onClearCustomBackground = viewModel::clearCustomBackground,
+        onPickHomeCardImage = viewModel::pickHomeCardImage,
+        onClearHomeCardImage = viewModel::clearHomeCardImage,
+        onSetUseSystemWallpaper = viewModel::setUseSystemWallpaper,
+        onSetExtractColorFromBackground = viewModel::setExtractColorFromBackground,
+        onSetCardBackgroundAlphaPercent = viewModel::setCardBackgroundAlphaPercent,
+        onSetCustomBackgroundBlurPercent = viewModel::setCustomBackgroundBlurPercent,
+        onSetCustomBackgroundScrimPercent = viewModel::setCustomBackgroundScrimPercent,
+        onExportTheme = viewModel::exportTheme,
+        onImportTheme = viewModel::importTheme,
+        onExportImages = viewModel::exportImages,
+        onExportCustomBackground = viewModel::exportCustomBackground,
+        onConfirmImportTheme = viewModel::confirmImportTheme,
+        onDismissImportThemeDialog = viewModel::dismissImportThemeDialog,
+        onSetCustomText = viewModel::setCustomText,
+        onResetAllCustomTexts = viewModel::resetAllCustomTexts,
+        onOpenCustomTexts = { navigator.push(Route.CustomTexts) },
+        onResetBackgroundAppearance = viewModel::resetBackgroundAppearance,
+    )
+
+    ThemeImportDialog(
+        show = uiState.showThemeImportDialog,
+        theme = uiState.pendingImportTheme,
+        onDismissRequest = viewModel::dismissImportThemeDialog,
+        onConfirm = { options ->
+            viewModel.confirmImportTheme(context, options)
+        }
+    )
+
+    // The first frame would otherwise render the preview from placeholder defaults.
+    if (state.loading) return
+
+    when (LocalUiMode.current) {
+        UiMode.Miuix -> ColorPaletteScreenMiuix(state, actions, section)
+        UiMode.Material -> ColorPaletteScreenMaterial(state, actions, section)
+    }
+}
