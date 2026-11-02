@@ -373,6 +373,65 @@ int ksu_handle_sys_reboot(int magic1, int magic2, unsigned int cmd,
 }
 
 #ifdef KSU_KPROBES_HOOK
+#ifdef CONFIG_KSU_SUSFS
+struct ksu_susfs_task_work {
+	struct callback_head cb;
+	unsigned int cmd;
+	void __user *payload;
+};
+
+static bool ksu_susfs_command_supported(unsigned int cmd)
+{
+	switch (cmd) {
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	case CMD_SUSFS_ADD_SUS_PATH:
+	case CMD_SUSFS_ADD_SUS_PATH_LOOP:
+#endif
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+	case CMD_SUSFS_HIDE_SUS_MNTS_FOR_NON_SU_PROCS:
+#endif
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+	case CMD_SUSFS_ADD_SUS_KSTAT:
+	case CMD_SUSFS_ADD_SUS_KSTAT_STATICALLY:
+	case CMD_SUSFS_UPDATE_SUS_KSTAT:
+#endif
+#ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
+	case CMD_SUSFS_SET_UNAME:
+#endif
+#ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
+	case CMD_SUSFS_ENABLE_LOG:
+#endif
+#ifdef CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG
+	case CMD_SUSFS_SET_CMDLINE_OR_BOOTCONFIG:
+#endif
+#ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
+	case CMD_SUSFS_ADD_OPEN_REDIRECT:
+#endif
+#ifdef CONFIG_KSU_SUSFS_SUS_MAP
+	case CMD_SUSFS_ADD_SUS_MAP:
+#endif
+	case CMD_SUSFS_ENABLE_AVC_LOG_SPOOFING:
+	case CMD_SUSFS_SHOW_ENABLED_FEATURES:
+	case CMD_SUSFS_SHOW_VARIANT:
+	case CMD_SUSFS_SHOW_VERSION:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static void ksu_susfs_task_work_fn(struct callback_head *cb)
+{
+	struct ksu_susfs_task_work *tw =
+		container_of(cb, struct ksu_susfs_task_work, cb);
+	void __user *payload = tw->payload;
+
+	ksu_handle_sys_reboot(KSU_INSTALL_MAGIC1, SUSFS_MAGIC, tw->cmd, &payload);
+	kfree(tw);
+	module_put(THIS_MODULE);
+}
+#endif
+
 static int reboot_handler_pre(struct kprobe *p, struct pt_regs *regs)
 {
 	struct pt_regs *real_regs = PT_REAL_REGS(regs);
@@ -380,7 +439,36 @@ static int reboot_handler_pre(struct kprobe *p, struct pt_regs *regs)
 	int magic2 = (int)PT_REGS_PARM2(real_regs);
 	unsigned int cmd = (unsigned int)PT_REGS_PARM3(real_regs);
 	unsigned long arg4 = (unsigned long)PT_REGS_SYSCALL_PARM4(real_regs);
-	unsigned long reply = (unsigned long)arg4;
+
+#ifdef CONFIG_KSU_SUSFS
+	if (magic1 == KSU_INSTALL_MAGIC1 && magic2 == SUSFS_MAGIC &&
+	    current_uid().val == 0 && ksu_susfs_command_supported(cmd)) {
+		struct ksu_susfs_task_work *tw;
+
+		if (!try_module_get(THIS_MODULE))
+			return 0;
+		tw = kzalloc(sizeof(*tw), GFP_ATOMIC);
+		if (!tw) {
+			module_put(THIS_MODULE);
+			pr_err("KernelSU: failed to allocate SUSFS task work\n");
+			return 0;
+		}
+		tw->cmd = cmd;
+		tw->payload = (void __user *)arg4;
+		tw->cb.func = ksu_susfs_task_work_fn;
+
+		if (task_work_add(current, &tw->cb, TWA_RESUME)) {
+			kfree(tw);
+			module_put(THIS_MODULE);
+			pr_err("KernelSU: failed to queue SUSFS task work\n");
+			return 0;
+		}
+
+		PT_REGS_IP(regs) = PT_REGS_RET(regs);
+		PT_REGS_RC(regs) = 0;
+		return 1;
+	}
+#endif
 
 	return ksu_handle_sys_reboot(magic1, magic2, cmd, (void __user **)&arg4);
 }
